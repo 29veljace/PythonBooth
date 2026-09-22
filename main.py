@@ -13,14 +13,16 @@ while True:
         output = cv2.applyColorMap(frame, cv2.COLORMAP_JET)
     elif mode == 1:
         output = cv2.bitwise_not(frame)
-    else:
+    elif mode == 2:
         output = frame
+    else:
+        output = cv2.applyColorMap(frame, cv2.COLORMAP_HSV)
 
     cv2.imshow('Manipulated Webcam', output)
 
     key = cv2.waitKey(1) & 0xFF
     if key == ord('n'):
-        mode = (mode + 1) % 3
+        mode = (mode + 1) % 4
     elif key == ord('q'):
         break
 
