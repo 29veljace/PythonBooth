@@ -34,7 +34,6 @@ while True:
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         filename = f'snapshot_{timestamp}.png'
         cv2.imwrite(filename, output)
-        print(f'Snapshot gespeichert: {filename}')
     elif key == ord('q'):
         break
 
