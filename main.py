@@ -1,9 +1,10 @@
 import cv2
 from datetime import datetime
 
-NUM_MODES = 9  # Anzahl der Modi (0-8), bei neuen Modi hier erhöhen
+import numpy as np
 
-# Gesichtserkennung (Haar-Cascade ist in OpenCV schon enthalten)
+NUM_MODES = 10
+
 face_cascade = cv2.CascadeClassifier(
     cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
 )
@@ -12,14 +13,12 @@ if face_cascade.empty():
 
 
 def pixelate(img, blocks_w=32, blocks_h=24):
-    """Verpixelt ein Bild auf blocks_w x blocks_h große Blöcke."""
     h, w = img.shape[:2]
     small = cv2.resize(img, (blocks_w, blocks_h), interpolation=cv2.INTER_LINEAR)
     return cv2.resize(small, (w, h), interpolation=cv2.INTER_NEAREST)
 
 
 def pixelate_faces(frame, block_size=12):
-    """Erkennt Gesichter und verpixelt nur diesen Bereich."""
     output = frame.copy()
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     faces = face_cascade.detectMultiScale(
@@ -28,7 +27,6 @@ def pixelate_faces(frame, block_size=12):
 
     for (x, y, w, h) in faces:
         roi = frame[y:y + h, x:x + w]
-        # Je größer block_size, desto gröber die Pixel
         blocks_w = max(1, w // block_size)
         blocks_h = max(1, h // block_size)
         output[y:y + h, x:x + w] = pixelate(roi, blocks_w, blocks_h)
@@ -61,8 +59,13 @@ while True:
         output = cv2.Canny(frame, 100, 200)
     elif mode == 7:
         output = pixelate(frame)
-    else:
+    elif mode == 8:
         output = pixelate_faces(frame)
+    else:
+        kernel = np.array([[0.131, 0.534, 0.272],
+                           [0.168, 0.686, 0.349],
+                           [0.189, 0.769, 0.393]])
+        output = cv2.transform(frame, kernel)
 
     cv2.imshow('Manipulated Webcam', output)
 
