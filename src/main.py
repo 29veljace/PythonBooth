@@ -1,7 +1,7 @@
 import cv2
 from datetime import datetime
 
-from filters import FILTERS
+from src.filters import FILTERS
 
 
 def main():
