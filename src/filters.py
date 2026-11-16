@@ -103,6 +103,13 @@ def hsv_map(frame):
 def grayscale(frame):
     return cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
+def rgb_split(frame, shift=8):
+    b, g, r = cv2.split(frame)
+    b = np.roll(b, -shift, axis=1)
+    r = np.roll(r, shift, axis=1)
+    return cv2.merge([b, g, r])
+
+
 
 def blur(frame):
     return cv2.GaussianBlur(frame, (15, 15), 0)
@@ -128,4 +135,5 @@ FILTERS = [
     pixelate_faces,
     sepia,
     enlarge_eyes,
+    rgb_split
 ]
