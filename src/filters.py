@@ -1,5 +1,7 @@
 import cv2
 import numpy as np
+import os
+import math
 
 face_cascade = cv2.CascadeClassifier(
     cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
@@ -83,6 +85,92 @@ def enlarge_eyes(frame, strength=0.6):
 
     return output
 
+SUNGLASSES_PATH = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "..", "assets", "sunglasses.png"
+)
+SUNGLASSES = cv2.imread(SUNGLASSES_PATH, cv2.IMREAD_UNCHANGED)
+if SUNGLASSES is None or SUNGLASSES.ndim != 3 or SUNGLASSES.shape[2] != 4:
+    raise RuntimeError("Sunglasses image missing or has no alpha channel: " + SUNGLASSES_PATH)
+
+
+def rotate_rgba(img, angle):
+    h, w = img.shape[:2]
+    matrix = cv2.getRotationMatrix2D((w / 2, h / 2), angle, 1.0)
+    cos = abs(matrix[0, 0])
+    sin = abs(matrix[0, 1])
+    new_w = int(h * sin + w * cos)
+    new_h = int(h * cos + w * sin)
+    matrix[0, 2] += new_w / 2 - w / 2
+    matrix[1, 2] += new_h / 2 - h / 2
+    return cv2.warpAffine(
+        img, matrix, (new_w, new_h),
+        flags=cv2.INTER_LINEAR,
+        borderMode=cv2.BORDER_CONSTANT,
+        borderValue=(0, 0, 0, 0),
+    )
+
+
+def overlay_rgba(frame, overlay, cx, cy):
+    frame_h, frame_w = frame.shape[:2]
+    over_h, over_w = overlay.shape[:2]
+
+    x0 = cx - over_w // 2
+    y0 = cy - over_h // 2
+
+    fx0, fy0 = max(x0, 0), max(y0, 0)
+    fx1, fy1 = min(x0 + over_w, frame_w), min(y0 + over_h, frame_h)
+    if fx1 <= fx0 or fy1 <= fy0:
+        return
+
+    ox0, oy0 = fx0 - x0, fy0 - y0
+    ox1, oy1 = ox0 + (fx1 - fx0), oy0 + (fy1 - fy0)
+
+    patch = overlay[oy0:oy1, ox0:ox1]
+    alpha = patch[:, :, 3:4].astype(np.float32) / 255.0
+    region = frame[fy0:fy1, fx0:fx1].astype(np.float32)
+
+    blended = alpha * patch[:, :, :3].astype(np.float32) + (1.0 - alpha) * region
+    frame[fy0:fy1, fx0:fx1] = blended.astype(np.uint8)
+
+
+def place_sunglasses(frame, cx, cy, width, angle):
+    ratio = SUNGLASSES.shape[0] / SUNGLASSES.shape[1]
+    width = max(1, int(width))
+    height = max(1, int(width * ratio))
+    resized = cv2.resize(SUNGLASSES, (width, height), interpolation=cv2.INTER_AREA)
+    rotated = rotate_rgba(resized, angle)
+    overlay_rgba(frame, rotated, cx, cy)
+
+
+def sunglasses(frame):
+    output = frame.copy()
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+    for (x, y, w, h) in detect_faces(gray):
+        roi_gray = gray[y:y + h // 2, x:x + w]
+        eyes = eye_cascade.detectMultiScale(
+            roi_gray, scaleFactor=1.1, minNeighbors=8, minSize=(w // 8, w // 8)
+        )
+
+        if len(eyes) >= 2:
+            largest = sorted(eyes, key=lambda e: e[2] * e[3], reverse=True)[:2]
+            left, right = sorted(largest, key=lambda e: e[0])
+
+            lx = x + left[0] + left[2] // 2
+            ly = y + left[1] + left[3] // 2
+            rx = x + right[0] + right[2] // 2
+            ry = y + right[1] + right[3] // 2
+
+            distance = math.hypot(rx - lx, ry - ly)
+            angle = -math.degrees(math.atan2(ry - ly, rx - lx))
+            place_sunglasses(
+                output, (lx + rx) // 2, (ly + ry) // 2, distance * 2.3, angle
+            )
+        else:
+            place_sunglasses(output, x + w // 2, y + int(h * 0.38), w * 0.95, 0)
+
+    return output
+
 
 def jet(frame):
     return cv2.applyColorMap(frame, cv2.COLORMAP_JET)
@@ -135,5 +223,6 @@ FILTERS = [
     pixelate_faces,
     sepia,
     enlarge_eyes,
-    rgb_split
+    rgb_split,
+    sunglasses
 ]
