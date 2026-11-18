@@ -210,6 +210,25 @@ def edges(frame):
 def sepia(frame):
     return cv2.transform(frame, SEPIA_KERNEL)
 
+def cartoon(frame):
+    # Smooth colors while preserving edges
+    color = cv2.bilateralFilter(frame, 9, 250, 250)
+
+    # Detect edges
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    gray = cv2.medianBlur(gray, 7)
+    edge_mask = cv2.adaptiveThreshold(
+        gray,
+        255,
+        cv2.ADAPTIVE_THRESH_MEAN_C,
+        cv2.THRESH_BINARY,
+        9,
+        2
+    )
+
+    # Combine smooth colors with black outlines
+    return cv2.bitwise_and(color, color, mask=edge_mask)
+
 
 FILTERS = [
     jet,
@@ -224,5 +243,6 @@ FILTERS = [
     sepia,
     enlarge_eyes,
     rgb_split,
-    sunglasses
+    sunglasses,
+    cartoon
 ]
